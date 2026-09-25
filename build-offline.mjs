@@ -1,0 +1,13 @@
+import {readFile,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {fileURLToPath} from 'node:url';import path from 'node:path';
+const root=path.dirname(fileURLToPath(import.meta.url));
+const read=async f=>(await readFile(path.join(root,f),'utf8')).replace(/\r\n?/g,'\n');
+let html=await read('dist/index.html');const css=await read('dist/style.css'),vendor=await read('dist/vendor/jszip.min.js');
+const engine=await read('dist/engine.js');const names=[...engine.matchAll(/export\s+(?:async\s+)?(?:const|function)\s+(\w+)/g)].map(m=>m[1]);
+const io=(await read('dist/xlsx.js')).replace(/^import[^\n]*\n/,'');const app=(await read('dist/app.js')).replace(/^import[^\n]*\n/gm,'').replace(/export\s+/g,'');
+const columns=(await read('dist/columns.js')).replace(/^import[^\n]*\n/,'').replace(/export\s+/g,'');
+const script=vendor+'\n;const E=(()=>{'+engine.replace(/export\s+/g,'')+'\nreturn {'+names.join(',')+'};})();\nconst {readXlsx,exportXlsx}=(()=>{const {REQUIRED,find,header}=E;'+io.replace(/export\s+/g,'')+'\nreturn {readXlsx,exportXlsx};})();\n'+columns+'\n'+app;
+const digest=createHash('sha256').update(script).digest('base64');
+html=html.replace('script-src \'self\'','script-src \'sha256-'+digest+'\'').replace('<link rel="stylesheet" href="./style.css">',()=>'<style>'+css+'</style>').replace('<script defer src="./vendor/jszip.min.js"></script>','').replace('<script type="module" src="./app.js"></script>','').replace('</body>',()=>'<script>'+script+'</script></body>');
+await writeFile(path.join(root,'offline.html'),html);await writeFile(path.join(root,'dist/offline.html'),html);console.log('offline.html created');
