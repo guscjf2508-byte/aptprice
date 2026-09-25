@@ -2,3 +2,5 @@
 
 /* Compact, fixed columns keep long addresses from expanding the table. */
 #dataTable{table-layout:fixed}#dataTable th,#dataTable td{padding-left:8px;padding-right:8px}#dataTable th button{font-size:13px;letter-spacing:-.03em}#dataTable th .sort-arrow{margin-left:3px;width:8px}.table-help{padding-top:12px}
+
+.column-resize{position:absolute;right:0;top:0;bottom:0;width:9px;cursor:col-resize;touch-action:none;z-index:6}.column-resize::after{content:"";position:absolute;right:3px;top:11px;bottom:11px;width:2px;background:#c7ced9}.column-resize:hover::after,.column-resize:focus::after{background:var(--blue);width:3px}.resizing-column,.resizing-column *{cursor:col-resize!important;user-select:none!important}

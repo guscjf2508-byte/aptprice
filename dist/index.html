@@ -10,6 +10,6 @@
 <section id="caseTools" hidden><div class="case-controls"><label>단지<select id="caseProperty"></select></label><label>타입<select id="caseType"><option value="">전체 타입</option></select></label><label>집계<select id="caseFrequency"><option value="month">월별</option><option value="day">일별</option></select></label><button id="analyzeCase" class="primary">분석</button></div><p id="caseNote" class="hint">단지와 집계 기준을 선택한 뒤 분석을 누르세요.</p><div id="chart" aria-label="평균 평당가 추이"></div><div id="chartTooltip" role="status" hidden></div></section>
 <div class="table-actions"><div><button id="copySelected" class="primary">선택 표 복사</button><button id="copyAll">현재 표 전체 복사</button><label class="check-label"><input id="includeHeaders" type="checkbox">열 제목 포함</label></div><p id="tableInfo" class="hint"></p></div>
 <div class="table-frame" tabindex="0" aria-label="분석 결과 표, 좌우 스크롤 가능"><table id="dataTable"><thead></thead><tbody></tbody></table><div id="noRows" hidden>조건에 맞는 데이터가 없습니다.</div></div>
-<p class="table-help">체크박스로 행 선택 · 열 제목으로 정렬 · 제목을 드래그해 순서 변경 · 셀을 더블클릭하면 텍스트 복사</p>
+<p class="table-help">체크박스로 행 선택 · 열 제목으로 정렬 · 제목을 드래그해 순서 변경 · 열 경계를 드래그해 너비 조절 · 셀을 더블클릭하면 텍스트 복사</p>
 </div></section><footer><span id="exclusionSummary">직거래·해제·타지역 중개사 거래 제외</span><p>‘행정동’은 원본 주소의 법정동·읍·면 기준입니다. 평형은 전용면적을 평으로 환산한 값입니다.</p></footer>
 </main><dialog id="copyFallback"><h2>텍스트 복사</h2><p>브라우저가 자동 복사를 허용하지 않아 텍스트를 준비했습니다. 아래 내용을 선택하고 Ctrl+C를 누르세요.</p><textarea readonly aria-label="복사할 내용"></textarea><button id="closeCopy">닫기</button></dialog></body></html>
