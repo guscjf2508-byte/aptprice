@@ -3,7 +3,7 @@ const aliases={'서울특별시':'서울','부산광역시':'부산','대구광�
 const provinces=new Set(Object.values(aliases));
 export const clean=v=>String(v??'').trim().replace(/\s+/g,' ');
 export const header=v=>String(v??'').replace(/\s/g,'');
-export const find=(headers,key)=>headers.findIndex(v=>header(v)===key||(['전용면적','거래금액'].includes(key)&&header(v).startsWith(key+'(')));
+export const find=(headers,key)=>headers.findIndex(v=>header(v)===key||(['전용면적','거래금액','보증금','월세금'].includes(key)&&header(v).startsWith(key+'(')));
 export const REQUIRED=['단지명','시군구','번지','전용면적','거래금액','해제사유발생일','거래유형','중개사소재지'];
 export function district(address){const t=clean(address).split(' '),p=aliases[t[0]]||t[0];if(!provinces.has(p))return null;if(p==='세종')return p;if(t.length<2||!/[시군구]$/.test(t[1]))return null;return p+' '+t[1]+(t[1].endsWith('시')&&t[2]?.endsWith('구')?' '+t[2]:'');}
 export function dong(address){const t=clean(address).split(' ');for(let i=t.length-1;i>=1;i--)if(/(동|가|읍|면)$/.test(t[i]))return t[i];return t.length>2?t.at(-1):'미확인';}
@@ -25,7 +25,7 @@ export function parseRows(source){
   return {id:'raw-'+r.rowNumber+'-'+index,cells:r.cells,rowNumber:r.rowNumber,name,address:clean(addr+' '+get('번지')),sourceAddress:addr,region,dong:town,regionKey:(region||'주소 미확인')+' '+town,area,type:Math.floor(area),price,unitPrice:price/area*SQM_PER_PYEONG,year:yearKey(get('건축년도')),floor:get('층'),date:contractDate(get('계약년월'),get('계약일')),broker,reason:reason||'포함'};
  });
 }
-export function filtered(rows,filters={}){return rows.filter(t=>(filters.region==null||filters.region.has(t.regionKey))&&(filters.name==null||filters.name.has(t.name))&&(filters.year==null||filters.year.has(t.year))&&(filters.type==null||filters.type.has(String(t.type))||filters.type.has('D:'+Math.floor(t.type/10)*10))&&(!filters.from&&!filters.to||t.date&&(!filters.from||t.date>=filters.from)&&(!filters.to||t.date<=filters.to)));}
+export function filtered(rows,filters={}){return rows.filter(t=>(!filters.lease||t.lease===filters.lease)&&(filters.contract==null||filters.contract.has(t.contract))&&(filters.region==null||filters.region.has(t.regionKey))&&(filters.name==null||filters.name.has(t.name))&&(filters.year==null||filters.year.has(t.year))&&(filters.type==null||filters.type.has(String(t.type))||filters.type.has('D:'+Math.floor(t.type/10)*10))&&(!filters.from&&!filters.to||t.date&&(!filters.from||t.date>=filters.from)&&(!filters.to||t.date<=filters.to)));}
 function group(items,key){const m=new Map();for(const item of items){const k=key(item);if(!m.has(k))m.set(k,[]);m.get(k).push(item);}return [...m.values()];}
 export const mean=(items,key)=>items.reduce((sum,t)=>sum+t[key],0)/items.length;
 function stats(items){let min=Infinity,max=-Infinity,pmin=Infinity,pmax=-Infinity,amin=Infinity,amax=-Infinity;for(const t of items){min=Math.min(min,t.unitPrice);max=Math.max(max,t.unitPrice);pmin=Math.min(pmin,t.price);pmax=Math.max(pmax,t.price);amin=Math.min(amin,t.area);amax=Math.max(amax,t.area);}return {minimum:min,maximum:max,average:mean(items,'unitPrice'),priceMinimum:pmin,priceMaximum:pmax,priceAverage:mean(items,'price'),areaMin:amin,areaMax:amax,count:items.length,year:[...new Set(items.map(t=>t.year).filter(y=>y!=='미확인'))].sort().join(', ')||'미확인'};}

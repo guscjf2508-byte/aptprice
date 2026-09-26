@@ -7,7 +7,10 @@ let html=await read('dist/index.html');const css=await read('dist/style.css'),ve
 const engine=await read('dist/engine.js');const names=[...engine.matchAll(/export\s+(?:async\s+)?(?:const|function)\s+(\w+)/g)].map(m=>m[1]);
 const io=(await read('dist/xlsx.js')).replace(/^import[^\n]*\n/,'');const app=(await read('dist/app.js')).replace(/^import[^\n]*\n/gm,'').replace(/export\s+/g,'');
 const columns=(await read('dist/columns.js')).replace(/^import[^\n]*\n/,'').replace(/export\s+/g,'');
-const script=vendor+'\n;const E=(()=>{'+engine.replace(/export\s+/g,'')+'\nreturn {'+names.join(',')+'};})();\nconst {readXlsx,exportXlsx}=(()=>{const {REQUIRED,find,header}=E;'+io.replace(/export\s+/g,'')+'\nreturn {readXlsx,exportXlsx};})();\n'+columns+'\n'+app;
+const rental=(await read('dist/rental.js')).replace(/^import[^\n]*\n/gm,'');
+const rentalNames=[...rental.matchAll(/export\s+(?:const|function)\s+(\w+)/g)].map(m=>m[1]);
+const rateData=await read('dist/rates.js');
+const script=rateData+'\n'+vendor+'\n;const E=(()=>{'+engine.replace(/export\s+/g,'')+'\nreturn {'+names.join(',')+'};})();\nconst {readXlsx,exportXlsx}=(()=>{const {REQUIRED,find,header}=E;'+io.replace(/export\s+/g,'')+'\nreturn {readXlsx,exportXlsx};})();\n'+columns+'\nconst R=(()=>{'+rental.replace(/export\s+/g,'')+'\nreturn {'+rentalNames.join(',')+'};})();\n'+app;
 const digest=createHash('sha256').update(script).digest('base64');
-html=html.replace('script-src \'self\'','script-src \'sha256-'+digest+'\'').replace('<link rel="stylesheet" href="./style.css">',()=>'<style>'+css+'</style>').replace('<script defer src="./vendor/jszip.min.js"></script>','').replace('<script type="module" src="./app.js"></script>','').replace('</body>',()=>'<script>'+script+'</script></body>');
+html=html.replace('script-src \'self\'','script-src \'sha256-'+digest+'\'').replace('<link rel="stylesheet" href="./style.css">',()=>'<style>'+css+'</style>').replace('<script defer src="./vendor/jszip.min.js"></script>','').replace('<script defer src="./rates.js"></script>','').replace('<script type="module" src="./app.js"></script>','').replace('</body>',()=>'<script>'+script+'</script></body>');
 await writeFile(path.join(root,'offline.html'),html);await writeFile(path.join(root,'dist/offline.html'),html);console.log('offline.html created');
