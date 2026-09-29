@@ -17,3 +17,5 @@
 .compact-review{flex-wrap:nowrap;gap:12px;padding:10px 18px;white-space:nowrap;overflow-x:auto;border-bottom:1px solid #edf0f4}.compact-review #salePolicy{display:flex;align-items:center;gap:12px;border:0;padding:0 16px 0 0;border-right:1px solid #d9dce3;flex-shrink:0}.compact-review .check-label{margin-left:0;font-size:13px}.compact-review #manualCount{margin-left:0;flex-shrink:0}.compact-review button{padding:5px 10px;min-height:30px;font-size:12px;flex-shrink:0}.compact-review .review-tip{font-size:12px}@media(max-width:800px){.compact-review .review-tip{display:none}}
 
 #sourceSection{margin-top:8px;background:#fff;border:1px solid #e1e3e8;border-radius:12px;overflow:hidden}
+
+.source-heading{font-size:14px;margin:0;padding:14px 18px 0;font-weight:600}#sourceSection .source-bar{border-top:0}
