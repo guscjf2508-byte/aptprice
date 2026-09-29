@@ -41,3 +41,18 @@ export function aggregate(rows){const included=rows.filter(t=>t.reason==='포함
 export function trend(rows,key,type=null,frequency='month'){const trades=rows.filter(t=>t.reason==='포함'&&propertyKey(t)===key&&(type==null||String(t.type)===String(type))).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||a.rowNumber-b.rowNumber);
  const points=group(trades.filter(t=>t.date),t=>frequency==='month'?t.date.slice(0,7):t.date).map(items=>({date:frequency==='month'?items[0].date.slice(0,7):items[0].date,average:mean(items,'unitPrice'),count:items.length})).sort((a,b)=>a.date.localeCompare(b.date));return {trades,points,missing:trades.filter(t=>!t.date).length};}
 export function sourceText(source){const m=source.metadata,get=k=>m[k]||'원본에 없음';return [`출처: 국토교통부 실거래가 공개시스템 | 대상: ${get('실거래 구분')} | 계약일 조회기간: ${get('계약일자')}`,`조회범위: ${get('시도')} / ${get('시군구')} / ${get('읍면동')}`,`산식: 거래별 [거래금액(만원) ÷ 전용면적(㎡) × 3.305785]의 산술평균 | 단위: 만원/평`,`제외: 직거래·해제 거래·타지역/소재지 미확인 중개사 거래·입력값 및 거래유형 확인 필요 거래`].join('\n');}
+
+export const reviewKey=r=>JSON.stringify([r.name,r.address,r.type]);
+export function reviewedRows(rows,excluded){return rows.map(r=>r.reason==='포함'&&excluded.has(r.id)?{...r,reason:'수동 제외'}:r);}
+export function unitValue(value,key,units){
+ const suffix={pyeongText:'평',areaText:'㎡',area:'㎡',typeText:'타입',type:'타입'}[key];
+ if(value==null||value===''||!suffix)return value;
+ const text=String(value).replace(new RegExp(suffix+'$'),'');
+ return text+(units[suffix]===false?'':suffix);
+}
+
+export function salePolicyRows(rows,policy={}){return rows.map(r=>{
+ if(!((r.reason==='직거래'&&policy.direct)||(r.reason==='타지역 중개사'&&policy.outside)))return r;
+ const valid=r.name&&r.region&&Number.isFinite(r.area)&&r.area>0&&r.area<=10000&&Number.isFinite(r.price)&&r.price>0&&r.price<=1e12;
+ return {...r,reason:valid?'포함':'입력값 확인'};
+});}

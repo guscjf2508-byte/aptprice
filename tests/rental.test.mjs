@@ -34,3 +34,11 @@ test('rental validation and monthly columns order',()=>{
  const cols=rentalColumns('월세').apartments.map(c=>c.key);assert.ok(cols.indexOf('rentAverage')<cols.indexOf('minimum'));
  const rows=R.parseRental(source([base]),rates);assert.equal(R.rentalTrend(rows,E.propertyKey(rows[0]),'60','day').trades.length,0);
 });
+test('manual district rates override only exact district and retain jeonse and exclusions',()=>{
+ const data={...rates,manual:{'서울 용산구':8}};
+ const row=R.parseRental(source([base]),data)[0];assert.equal(row.price,25000);assert.equal(row.rateStatus,'수동 입력');assert.equal(row.rateMonth,'수동 입력');
+ assert.equal(R.rateFor('서울 강남구','아파트',data).rate,4);assert.equal(R.rateFor('서울 용산구','오피스텔',data).rate,8);
+ const jeonse=[...base];jeonse[5]=0;jeonse[8]='전세';assert.equal(R.parseRental(source([jeonse]),data)[0].price,10000);
+ assert.equal(R.parseRental(source([base]),rates)[0].price,34000);
+ const applied=E.reviewedRows([row],new Set([row.id]));assert.equal(R.aggregateRental(applied).included.length,0);
+});
