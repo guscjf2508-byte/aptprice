@@ -15,3 +15,5 @@
 @media(max-width:1250px){.filter-line{overflow-x:auto;padding-bottom:6px}.filter-line .filter-menu{position:fixed;left:16px!important;top:20vh!important}.filter-line .date-row{margin-left:0}}
 
 .compact-review{flex-wrap:nowrap;gap:12px;padding:10px 18px;white-space:nowrap;overflow-x:auto;border-bottom:1px solid #edf0f4}.compact-review #salePolicy{display:flex;align-items:center;gap:12px;border:0;padding:0 16px 0 0;border-right:1px solid #d9dce3;flex-shrink:0}.compact-review .check-label{margin-left:0;font-size:13px}.compact-review #manualCount{margin-left:0;flex-shrink:0}.compact-review button{padding:5px 10px;min-height:30px;font-size:12px;flex-shrink:0}.compact-review .review-tip{font-size:12px}@media(max-width:800px){.compact-review .review-tip{display:none}}
+
+#sourceSection{margin-top:8px;background:#fff;border:1px solid #e1e3e8;border-radius:12px;overflow:hidden}

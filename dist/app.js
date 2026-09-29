@@ -23,7 +23,7 @@ function updateModeUI(){
  $('#manualRates').hidden=state.mode!=='rent';$('#rentalControls').hidden=state.mode!=='rent';$('#rateNotice').hidden=state.mode!=='rent';
  $('#tab-apartments').textContent=state.mode==='rent'?'단지별 임대료':'단지별 평당가';
  $('.units').textContent=state.mode==='rent'?'금액: 만 원 · 평당가: 만원/평 · 전환율: 연 %':'평당가: 만원/평 · 거래금액: 만 원';
- $('#loadedInfo').hidden=!state.source;$('#empty').hidden=!!state.source;$('#results').hidden=!state.source;
+ $('#sourceSection').hidden=!state.source;$('#loadedInfo').hidden=!state.source;$('#empty').hidden=!!state.source;$('#results').hidden=!state.source;
  if(state.source){$('#fileName').textContent=state.source.name+' · '+state.source.sheetName;$('#source').textContent=sourceText();}
  updateRateNotice();
 }
