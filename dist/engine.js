@@ -56,3 +56,21 @@ export function salePolicyRows(rows,policy={}){return rows.map(r=>{
  const valid=r.name&&r.region&&Number.isFinite(r.area)&&r.area>0&&r.area<=10000&&Number.isFinite(r.price)&&r.price>0&&r.price<=1e12;
  return {...r,reason:valid?'포함':'입력값 확인'};
 });}
+
+export function mergeSources(sources,dedupe=true){
+ if(!sources.length)throw Error('파일을 선택하세요.');
+ if(sources.length===1)return {...sources[0],files:[sources[0].name],duplicates:0,deduplicated:dedupe};
+ const kind=s=>String(s.metadata?.['실거래 구분']||s.name).includes('오피스텔')?'오피스텔':'아파트';
+ const rental=s=>find(s.headers,'보증금')>=0;
+ if(sources.some(s=>kind(s)!==kind(sources[0])||rental(s)!==rental(sources[0])))throw Error('같은 주택유형·거래종류의 파일끼리 선택하세요.');
+ const headers=[...new Set(sources.flatMap(s=>s.headers))],rows=[],previous=new Map();let duplicates=0;
+ for(const source of sources){const local=new Map();for(const row of source.rows){const cells=headers.map(h=>row.cells[source.headers.indexOf(h)]??'');const key=JSON.stringify(headers.map((h,i)=>/^no$/i.test(h.trim())?'':clean(cells[i])));const occurrence=(local.get(key)||0)+1;local.set(key,occurrence);const repeated=occurrence<=(previous.get(key)||0);if(repeated)duplicates++;if(!dedupe||!repeated)rows.push({rowNumber:row.rowNumber,cells:[...cells,source.name,row.rowNumber]});}for(const [k,n]of local)previous.set(k,Math.max(n,previous.get(k)||0));}
+ const metadata={...sources[0].metadata};for(const k of ['시도','시군구','읍면동','계약일자'])metadata[k]=[...new Set(sources.map(s=>s.metadata?.[k]).filter(Boolean))].join(' / ');
+ return {name:sources.length===1?sources[0].name:sources.length+'개 파일 통합.xlsx',sheetName:sources[0].sheetName,headers:[...headers,'원본 파일','원본 파일 행'],rows,metadata,files:sources.map(s=>s.name),duplicates,deduplicated:dedupe};
+}
+export function transactionVolumes(rows,frequency='month',from=null,to=null){
+ const included=rows.filter(r=>r.reason==='포함'),valid=included.filter(r=>r.date);const period=d=>frequency==='quarter'?d.slice(0,4)+' Q'+(Math.floor((Number(d.slice(5,7))-1)/3)+1):d.slice(0,7);
+ const buckets=new Map();for(const r of valid){const key=period(r.date);buckets.set(key,(buckets.get(key)||0)+1);}
+ const dates=rows.map(r=>r.date).filter(Boolean).sort(),first=from||dates[0],last=to||dates.at(-1);if(first&&last){let y=Number(first.slice(0,4)),m=Number(first.slice(5,7));while(y*12+m<=Number(last.slice(0,4))*12+Number(last.slice(5,7))){const key=period(y+'-'+String(m).padStart(2,'0')+'-01');if(!buckets.has(key))buckets.set(key,0);if(++m>12){m=1;y++;}}}
+ return {rows:[...buckets].sort(([a],[b])=>a.localeCompare(b)).map(([period,count])=>({id:period,period,count})),missing:included.length-valid.length};
+}

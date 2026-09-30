@@ -6,7 +6,7 @@ const nodes=(el,name)=>[...el.getElementsByTagNameNS('*',name)];
 const richText=el=>nodes(el,'t').filter(t=>t.parentNode.localName!=='rPh').map(t=>t.textContent).join('');
 function column(ref){let n=0;for(const c of ref||''){if(c<'A'||c>'Z')break;n=n*26+c.charCodeAt(0)-64;}return n-1;}
 function zipLimits(buffer){const v=new DataView(buffer);let end=-1;for(let i=v.byteLength-22;i>=Math.max(0,v.byteLength-65557);i--)if(v.getUint32(i,true)===0x06054b50){end=i;break;}if(end<0)throw Error('올바른 .xlsx 파일이 아닙니다.');const entries=v.getUint16(end+10,true);let at=v.getUint32(end+16,true),total=0;if(entries===65535||at===0xffffffff)throw Error('파일이 너무 큽니다. 기간을 나눠 주세요.');for(let n=0;n<entries;n++){if(at+46>v.byteLength||v.getUint32(at,true)!==0x02014b50)throw Error('엑셀 압축 구조가 손상되었습니다.');const size=v.getUint32(at+24,true);total+=size;if(size>300*1024*1024||total>700*1024*1024)throw Error('엑셀 데이터가 너무 큽니다. 다운로드 기간을 나눠 주세요.');at+=46+v.getUint16(at+28,true)+v.getUint16(at+30,true)+v.getUint16(at+32,true);}}
-export async function readXlsx(file,onProgress=()=>{}){
+export async function readXlsx(file,onProgress=()=>{},raw=false){
  if(!/\.xlsx$/i.test(file.name))throw Error('.xlsx 파일을 선택해 주세요.');if(file.size>200*1024*1024)throw Error('200MB 이하 파일을 선택해 주세요.');onProgress('엑셀 파일을 읽는 중…');
  const buffer=await file.arrayBuffer();zipLimits(buffer);const zip=await globalThis.JSZip.loadAsync(buffer);
  async function read(path){const f=zip.file(path);if(!f)throw Error('엑셀 파일에 필요한 구성요소가 없습니다.');return xml(await f.async('string'));}
@@ -16,13 +16,14 @@ export async function readXlsx(file,onProgress=()=>{}){
   const rid=sheet.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id'),target=rels.get(rid);if(!target)continue;
   const url=new URL(target.replace(/\\/g,'/'),'https://xlsx.local/xl/workbook.xml');if(url.origin!=='https://xlsx.local')continue;const path=decodeURIComponent(url.pathname.slice(1));if(!path.includes('worksheets/'))continue;
   const doc=await read(path),metadata={},rows=[];let headers=null,fallback=0;
-  for(const row of nodes(doc,'row')){fallback++;const cells=[];let next=0;for(const c of nodes(row,'c')){let col=column(c.getAttribute('r'));if(col<0)col=next;next=col+1;if(col>200)continue;const kind=c.getAttribute('t');let val=nodes(c,'v')[0]?.textContent||'';if(kind==='s')val=strings[Number(val)]||'';else if(kind==='inlineStr')val=richText(c);else if(kind==='e')val='';cells[col]=val;}
-   if(!cells.some(v=>String(v??'').trim()))continue;
+  for(const row of nodes(doc,'row')){fallback++;const cells=[];let next=0;for(const c of nodes(row,'c')){let col=column(c.getAttribute('r'));if(col<0)col=next;next=col+1;if(col>(raw?5000:200))continue;const kind=c.getAttribute('t');let val=nodes(c,'v')[0]?.textContent||'';if(kind==='s')val=strings[Number(val)]||'';else if(kind==='inlineStr')val=richText(c);else if(kind==='e')val='';cells[col]=val;}
+   if(!cells.some(v=>String(v??'').trim()))continue;if(raw){rows.push({rowNumber:Number(row.getAttribute('r'))||fallback,cells});continue;}
    if(!headers){if(!cells.some(v=>header(v)==='단지명')){for(const v of cells){const m=String(v??'').match(/^(계약일자|실거래 구분|주소구분|시도|시군구|읍면동|단지명|면적|금액선택)\s*:\s*(.*)$/);if(m)metadata[m[1]]=m[2].trim();}continue;}
     const required=find(cells,'보증금')>=0?['단지명','시군구','번지','전용면적','보증금','월세금','계약년월','계약일']:REQUIRED;const missing=required.filter(k=>find(cells,k)<0);if(missing.length)throw Error('아파트·오피스텔 매매·전월세 원본을 확인하세요. 필수 열: '+missing.join(', '));headers=Array.from(cells,v=>v??'');
    }else{if(find(cells,'단지명')>=0&&find(cells,'거래금액')>=0)continue;rows.push({rowNumber:Number(row.getAttribute('r'))||fallback,cells:Array.from({length:headers.length},(_,i)=>cells[i]??'')});if(rows.length>250000)throw Error('거래가 25만 건을 넘습니다. 기간을 나눠 주세요.');}
    if(fallback%2000===0){onProgress(`${rows.length.toLocaleString()}건 읽는 중…`);await new Promise(r=>setTimeout(r,0));}
   }
+  if(raw&&rows.length)return {name:file.name,sheetName:sheet.getAttribute('name'),rows};
   if(headers){if(!rows.length)throw Error('거래 내역이 없습니다.');return {name:file.name,sheetName:sheet.getAttribute('name'),headers,metadata,rows};}
  }
  throw Error('실거래가 표를 찾지 못했습니다. 국토부 실거래가 원본 파일을 선택해 주세요.');
