@@ -74,3 +74,42 @@ export function transactionVolumes(rows,frequency='month',from=null,to=null){
  const dates=rows.map(r=>r.date).filter(Boolean).sort(),first=from||dates[0],last=to||dates.at(-1);if(first&&last){let y=Number(first.slice(0,4)),m=Number(first.slice(5,7));while(y*12+m<=Number(last.slice(0,4))*12+Number(last.slice(5,7))){const key=period(y+'-'+String(m).padStart(2,'0')+'-01');if(!buckets.has(key))buckets.set(key,0);if(++m>12){m=1;y++;}}}
  return {rows:[...buckets].sort(([a],[b])=>a.localeCompare(b)).map(([period,count])=>({id:period,period,count})),missing:included.length-valid.length};
 }
+
+export function periodLabel(date,frequency='month'){
+ const y=date.slice(0,4),m=Number(date.slice(5,7));return frequency==='year'?y:frequency==='half'?y+' H'+(m<=6?1:2):frequency==='quarter'?y+' Q'+Math.ceil(m/3):date.slice(0,7);
+}
+export function periodSummary(rows,scope='propertyType',frequency='month'){
+ const included=rows.filter(r=>r.reason==='포함'),valid=included.filter(r=>r.date),map=new Map();
+ for(const r of valid){const period=periodLabel(r.date,frequency);let key,label;
+ if(scope==='dong'){key=[r.region,r.dong];label=r.region+' '+r.dong;}
+ else if(scope==='property'){key=[r.name,r.address];label=r.name+' · '+r.address;}
+ else if(scope==='type'){key=[r.type];label=r.type+'타입';}
+ else if(scope==='all'){key=['all'];label='전체';}
+ else{key=[r.name,r.address,r.type];label=r.name+' · '+r.type+'타입 · '+r.address;}
+ const id=JSON.stringify([period,...key]);if(!map.has(id))map.set(id,{id,period,group:label,count:0,priceSum:0,unitSum:0,pricedCount:0});const g=map.get(id);g.count++;if(Number.isFinite(r.price)&&Number.isFinite(r.unitPrice)){g.priceSum+=r.price;g.unitSum+=r.unitPrice;g.pricedCount++;}}
+ return {rows:[...map.values()].map(g=>({...g,priceAverage:g.pricedCount?g.priceSum/g.pricedCount:null,average:g.pricedCount?g.unitSum/g.pricedCount:null})).sort((a,b)=>a.period.localeCompare(b.period)||a.group.localeCompare(b.group,'ko',{numeric:true})),missing:included.length-valid.length};
+}
+export function sourceDateRange(source,rows=[]){
+ const dates=String(source?.metadata?.['계약일자']||'').match(/\d{4}[-.]\d{2}[-.]\d{2}/g)?.map(d=>d.replaceAll('.','-')).filter(d=>Number.isFinite(Date.parse(d)))||[];
+ const fallback=rows.map(r=>r.date).filter(Boolean);const values=(dates.length>=2?dates:fallback).sort();return {from:values[0]||null,to:values.at(-1)||null};
+}
+export function stepCoordinates(points,from,to){
+ const stamp=d=>Date.parse(d+(d.length===7?'-01':'')+'T00:00:00Z');const start=stamp(from),end=stamp(to);if(!Number.isFinite(start)||!Number.isFinite(end)||end<start)return [];
+ const out=[];let previous=null;for(const p of points){const x=Math.max(start,Math.min(end,stamp(p.date)));if(!Number.isFinite(x)||!Number.isFinite(p.average))continue;if(previous!==null)out.push([x,previous]);out.push([x,p.average]);previous=p.average;}if(previous!==null)out.push([end,previous]);return out;
+}
+
+// Preserve the identity of properties internally; display only their names.
+export function periodAnalysis(rows,scope='property',frequency='month',from=null,to=null){
+ const dated=rows.filter(r=>r.date),dates=dated.map(r=>r.date).sort();from=from||dates[0];to=to||dates.at(-1);
+ const periods=new Set();if(from&&to&&from<=to){let y=Number(from.slice(0,4)),m=Number(from.slice(5,7));const end=Number(to.slice(0,4))*12+Number(to.slice(5,7));while(y*12+m<=end){periods.add(periodLabel(`${y}-${String(m).padStart(2,'0')}-01`,frequency));if(++m===13){m=1;y++;}}}
+ const groups=new Map();let missing=0;
+ for(const r of rows){if(r.reason==='포함'&&!r.date)missing++;if(!r.date||(from&&r.date<from)||(to&&r.date>to))continue;
+ const groupKey=JSON.stringify(scope==='dong'?[r.region,r.dong,r.type]:[r.name,r.address,r.type]);
+ if(!groups.has(groupKey))groups.set(groupKey,{groupKey,targetKey:JSON.stringify(scope==='dong'?[r.region,r.dong]:[r.name,r.address]),group:scope==='dong'?[r.region,r.dong].filter(Boolean).join(' '):r.name,type:r.type,typeText:r.type+'타입',buckets:new Map()});
+ const g=groups.get(groupKey);if(r.reason!=='포함')continue;const period=periodLabel(r.date,frequency);
+ if(!g.buckets.has(period))g.buckets.set(period,{count:0,priceSum:0,unitSum:0,pricedCount:0,priceMinimum:null,priceMaximum:null,minimum:null,maximum:null});
+ const b=g.buckets.get(period);b.count++;if(Number.isFinite(r.price)&&Number.isFinite(r.unitPrice)){b.priceSum+=r.price;b.unitSum+=r.unitPrice;b.pricedCount++;b.priceMinimum=b.priceMinimum==null?r.price:Math.min(b.priceMinimum,r.price);b.priceMaximum=b.priceMaximum==null?r.price:Math.max(b.priceMaximum,r.price);b.minimum=b.minimum==null?r.unitPrice:Math.min(b.minimum,r.unitPrice);b.maximum=b.maximum==null?r.unitPrice:Math.max(b.maximum,r.unitPrice);}
+ }
+ const result=[];for(const g of [...groups.values()].sort((a,b)=>a.group.localeCompare(b.group,'ko',{numeric:true})||a.groupKey.localeCompare(b.groupKey,'ko',{numeric:true}))){for(const period of periods){const b=g.buckets.get(period);result.push({id:JSON.stringify([g.groupKey,period]),groupKey:g.groupKey,targetKey:g.targetKey,group:g.group,type:g.type,typeText:g.typeText,period,count:b?.count||0,pricedCount:b?.pricedCount||0,priceMinimum:b?.priceMinimum??null,priceMaximum:b?.priceMaximum??null,minimum:b?.minimum??null,maximum:b?.maximum??null,priceAverage:b?.pricedCount?b.priceSum/b.pricedCount:null,average:b?.pricedCount?b.unitSum/b.pricedCount:null});}}
+ return {rows:result,missing};
+}

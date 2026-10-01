@@ -21,3 +21,11 @@
 .source-heading{font-size:14px;margin:0;padding:14px 18px 0;font-weight:600}#sourceSection .source-bar{border-top:0}
 
 #multiOptions{display:flex;align-items:center;gap:12px;margin:0 0 12px;flex-wrap:wrap}#multiOptions .check-label{margin-left:0}#indexPanel{padding:18px;margin-bottom:18px}.index-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.index-controls h2{font-size:18px;margin:0}.index-controls label{display:flex;gap:8px;align-items:center;font-size:14px}#indexRegion{max-width:340px}#indexChart svg,#volumeChart svg{width:100%;height:220px;display:block}#volumeChart{padding:8px 18px}#indexSource{white-space:normal;line-height:1.7}
+
+#dataTable th,#dataTable td,#indexTable th,#indexTable td{border-right:1px solid #e1e5ec}#dataTable th:last-child,#dataTable td:last-child,#indexTable th:last-child,#indexTable td:last-child{border-right:0}#dataTable th.numeric button{width:100%;text-align:right}#dataTable .review-table th,#dataTable .review-table td{padding:8px 12px;vertical-align:middle}#dataTable .review-table th.numeric,#dataTable .review-table td.numeric{text-align:right}#dataTable .review-table th:first-child,#dataTable .review-table td:first-child{width:52px;text-align:center}.review-table th{border-right:1px solid #ccd3dd}.review-table td{border-right:1px solid #e1e5ec}#periodTools .case-controls{padding-bottom:14px}
+
+.period-chart-grid{display:grid;grid-template-columns:1fr;gap:12px;padding:0 18px}.period-chart-grid h3{font-size:14px;margin:8px 0}.period-chart-grid svg{width:100%;height:auto}#periodCharts{border:1px solid #ced9e8;border-radius:10px;margin:8px 18px 16px;background:#f8faff}#periodCharts>p{padding:0 18px}@media(max-width:850px){.period-chart-grid{grid-template-columns:1fr}}
+
+.period-chart-grid .chart-label{font-size:14px}.period-chart-grid svg{max-height:220px}
+
+#dataTable .period-group-heading th{position:static;text-align:left;background:#eaf2fc;color:#164774;font-weight:700;padding:12px 16px;border-top:2px solid #c5d8ef}.table-actions [hidden]{display:none!important}
