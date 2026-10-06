@@ -29,3 +29,5 @@
 .period-chart-grid .chart-label{font-size:14px}.period-chart-grid svg{max-height:220px}
 
 #dataTable .period-group-heading th{position:static;text-align:left;background:#eaf2fc;color:#164774;font-weight:700;padding:12px 16px;border-top:2px solid #c5d8ef}.table-actions [hidden]{display:none!important}
+
+#rentalControls{flex-wrap:wrap}#rentBasis{display:flex;gap:8px;align-items:center;flex-wrap:wrap}#rentBasis[hidden]{display:none}#targetDeposit{width:145px;padding:8px;border:1px solid #d9dce3;border-radius:8px}

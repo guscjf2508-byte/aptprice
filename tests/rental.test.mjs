@@ -31,7 +31,7 @@ test('lease, multi contract, and inclusive date filters recalculate means',()=>{
 test('rental validation and monthly columns order',()=>{
  const bad=[...base];bad[8]='전세';assert.equal(R.parseRental(source([bad]),rates)[0].reason,'전월세 구분 확인');
  const blank=[...base];blank[5]='';assert.equal(R.parseRental(source([blank]),rates)[0].reason,'입력값 확인');
- const cols=rentalColumns('월세').apartments.map(c=>c.key);assert.ok(cols.indexOf('rentAverage')<cols.indexOf('minimum'));
+ const cols=rentalColumns('월세').apartments.map(c=>c.key);assert.ok(cols.indexOf('rentAverage')<cols.indexOf('adjustedMinimum'));
  const rows=R.parseRental(source([base]),rates);assert.equal(R.rentalTrend(rows,E.propertyKey(rows[0]),'60','day').trades.length,0);
 });
 test('manual district rates override only exact district and retain jeonse and exclusions',()=>{
