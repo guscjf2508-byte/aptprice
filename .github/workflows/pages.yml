@@ -27,9 +27,17 @@ jobs:
         with:
           python-version: '3.12'
       - name: Update regional conversion rates
+        id: rates
+        continue-on-error: true
         env:
           REB_API_KEY: ${{ secrets.REB_API_KEY }}
         run: python scripts/update-rates.py
+      - name: Verify saved conversion rates
+        run: |
+          node --input-type=module -e "import fs from 'node:fs'; import vm from 'node:vm'; const context = {}; vm.runInNewContext(fs.readFileSync('dist/rates.js', 'utf8'), context); const rates = context.REB_RATES; if (!Array.isArray(rates?.records) || !rates.records.length || rates.records.some(r => !(Number.isFinite(r.rate) && r.rate > 0 && r.rate < 100))) throw new Error('Saved conversion rates are invalid'); console.log('Saved conversion rates verified');"
+      - name: Report conversion rate refresh failure
+        if: steps.rates.outcome == 'failure'
+        run: echo "::warning::Conversion rate refresh failed. Deploying with the previously saved rates and their original reference month."
       - name: Rebuild standalone HTML
         run: node build-offline.mjs
       - name: Verify analysis rules
