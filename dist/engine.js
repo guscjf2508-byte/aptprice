@@ -6,14 +6,22 @@ export const header=v=>String(v??'').replace(/\s/g,'');
 export const find=(headers,key)=>headers.findIndex(v=>header(v)===key||(['전용면적','거래금액','보증금','월세금'].includes(key)&&header(v).startsWith(key+'(')));
 export const REQUIRED=['단지명','시군구','번지','전용면적','거래금액','해제사유발생일','거래유형','중개사소재지'];
 export function district(address){const t=clean(address).split(' '),p=aliases[t[0]]||t[0];if(!provinces.has(p))return null;if(p==='세종')return p;if(t.length<2||!/[시군구]$/.test(t[1]))return null;return p+' '+t[1]+(t[1].endsWith('시')&&t[2]?.endsWith('구')?' '+t[2]:'');}
+export function brokerReason(broker,region){
+ const districts=String(broker??'').split(/[,，;\r\n]/).map(district);
+ if(region&&districts.includes(region))return '포함';
+ return districts.some(d=>!d)?'소재지 미확인':'타지역 중개사';
+}
 export function dong(address){const t=clean(address).split(' ');for(let i=t.length-1;i>=1;i--)if(/(동|가|읍|면)$/.test(t[i]))return t[i];return t.length>2?t.at(-1):'미확인';}
 export function number(v){const s=String(v??'').replace(/[,\s]/g,'');return /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(s)?Number(s):NaN;}
 export function contractDate(ym,day){ym=String(ym??'').trim();const d=Number(day);if(!/^\d{6}$/.test(ym)||!Number.isInteger(d)||d<1||d>31)return null;const date=`${ym.slice(0,4)}-${ym.slice(4)}-${String(d).padStart(2,'0')}`;const parsed=new Date(date+'T00:00:00Z');return !Number.isNaN(+parsed)&&parsed.toISOString().slice(0,10)===date?date:null;}
 export const yearKey=v=>!clean(v)||clean(v)==='-'?'미확인':clean(v);
 export const propertyKey=t=>JSON.stringify([t.name,t.address]);
-export const areaText=n=>Number(n.toFixed(4)).toString();
-export const range=(a,b,unit,precision)=>{const fmt=n=>precision===undefined?areaText(n):n.toFixed(precision);return fmt(a)+(a===b?'':'~'+fmt(b))+unit;};
+export const areaText=n=>new Intl.NumberFormat("en-US",{useGrouping:false,maximumFractionDigits:2}).format(n);
+export const range=(a,b,unit,precision)=>{const fmt=n=>precision===undefined?areaText(n):n.toFixed(precision);return fmt(a)+(fmt(a)===fmt(b)?'':'~'+fmt(b))+unit;};
+export const officetelBand=area=>!Number.isFinite(area)||area<=0?null:area<=25?25:area<=40?40:area<=60?60:area<=85?85:86;
+export const officetelBandLabel=type=>({25:'~25㎡',40:'26~40㎡',60:'41~60㎡',85:'61~85㎡',86:'85㎡ 초과'})[type]||'면적 미확인';
 export function parseRows(source){
+ const officetel=[source.name,source.sheetName,source.metadata?.['실거래 구분']].some(v=>String(v||'').includes('오피스텔'));
  const ix=Object.fromEntries([...REQUIRED,'건축년도','계약년월','계약일','층'].map(k=>[k,find(source.headers,k)]));
  if(REQUIRED.some(k=>ix[k]<0))throw Error('매매 자료의 필수 열이 없습니다. 아파트·오피스텔 매매 원본을 선택해 주세요.');
  return source.rows.map((r,index)=>{
@@ -21,8 +29,8 @@ export function parseRows(source){
   const area=number(get('전용면적')),price=number(get('거래금액')),region=district(addr),town=dong(addr);let reason=null;
   if(cancel&&cancel!=='-')reason='해제 거래';else if(deal==='직거래')reason='직거래';else if(deal!=='중개거래')reason='거래유형 확인';
   else if(!name||!addr||!Number.isFinite(area)||area<=0||area>10000||!Number.isFinite(price)||price<=0||price>1e12)reason='입력값 확인';
-  else{const brokers=broker.split(/[,，;\r\n]/).map(clean);if(!region)reason='아파트 주소 확인';else if(brokers.some(b=>!b||b==='-'||!district(b)))reason='소재지 미확인';else if(brokers.some(b=>district(b)!==region))reason='타지역 중개사';}
-  return {id:'raw-'+r.rowNumber+'-'+index,cells:r.cells,rowNumber:r.rowNumber,name,address:clean(addr+' '+get('번지')),sourceAddress:addr,region,dong:town,regionKey:(region||'주소 미확인')+' '+town,area,type:Math.floor(area),price,unitPrice:price/area*SQM_PER_PYEONG,year:yearKey(get('건축년도')),floor:get('층'),date:contractDate(get('계약년월'),get('계약일')),broker,reason:reason||'포함'};
+  else reason=region?brokerReason(broker,region):'아파트 주소 확인';
+  return {id:'raw-'+r.rowNumber+'-'+index,cells:r.cells,rowNumber:r.rowNumber,name,address:clean(addr+' '+get('번지')),sourceAddress:addr,region,dong:town,regionKey:(region||'주소 미확인')+' '+town,area,type:officetel?officetelBand(area):Math.floor(area),...(officetel?{typeText:officetelBandLabel(officetelBand(area))}:{}),price,unitPrice:price/area*SQM_PER_PYEONG,year:yearKey(get('건축년도')),floor:get('층'),date:contractDate(get('계약년월'),get('계약일')),broker,reason:reason||'포함'};
  });
 }
 export function filtered(rows,filters={}){return rows.filter(t=>(!filters.lease||t.lease===filters.lease)&&(filters.contract==null||filters.contract.has(t.contract))&&(filters.region==null||filters.region.has(t.regionKey))&&(filters.name==null||filters.name.has(t.name))&&(filters.year==null||filters.year.has(t.year))&&(filters.type==null||filters.type.has(String(t.type))||filters.type.has('D:'+Math.floor(t.type/10)*10))&&(!filters.from&&!filters.to||t.date&&(!filters.from||t.date>=filters.from)&&(!filters.to||t.date<=filters.to)));}
@@ -31,7 +39,7 @@ export const mean=(items,key)=>items.reduce((sum,t)=>sum+t[key],0)/items.length;
 function stats(items){let min=Infinity,max=-Infinity,pmin=Infinity,pmax=-Infinity,amin=Infinity,amax=-Infinity;for(const t of items){min=Math.min(min,t.unitPrice);max=Math.max(max,t.unitPrice);pmin=Math.min(pmin,t.price);pmax=Math.max(pmax,t.price);amin=Math.min(amin,t.area);amax=Math.max(amax,t.area);}return {minimum:min,maximum:max,average:mean(items,'unitPrice'),priceMinimum:pmin,priceMaximum:pmax,priceAverage:mean(items,'price'),areaMin:amin,areaMax:amax,count:items.length,year:[...new Set(items.map(t=>t.year).filter(y=>y!=='미확인'))].sort().join(', ')||'미확인'};}
 const cmp=(a,b)=>a.localeCompare(b,'ko');
 export function aggregate(rows){const included=rows.filter(t=>t.reason==='포함'),excluded=rows.filter(t=>t.reason!=='포함');
- const apartments=group(included,t=>JSON.stringify([t.name,t.address,t.type])).map(items=>{const t=items[0],s=stats(items);return {...s,id:'apt-'+JSON.stringify([t.name,t.address,t.type]),name:t.name,region:t.region,dong:t.dong,address:t.address,type:t.type,typeText:t.type+'타입',areaText:range(s.areaMin,s.areaMax,'㎡'),pyeongText:range(s.areaMin/SQM_PER_PYEONG,s.areaMax/SQM_PER_PYEONG,'평',2)};}).sort((a,b)=>cmp(a.name,b.name)||cmp(a.address,b.address)||a.type-b.type);
+ const apartments=group(included,t=>JSON.stringify([t.name,t.address,t.type])).map(items=>{const t=items[0],s=stats(items);return {...s,id:'apt-'+JSON.stringify([t.name,t.address,t.type]),name:t.name,region:t.region,dong:t.dong,address:t.address,type:t.type,typeText:t.typeText||t.type+'타입',areaText:range(s.areaMin,s.areaMax,'㎡'),pyeongText:range(s.areaMin/SQM_PER_PYEONG,s.areaMax/SQM_PER_PYEONG,'평',2)};}).sort((a,b)=>cmp(a.name,b.name)||cmp(a.address,b.address)||a.type-b.type);
  const regions=group(included,t=>JSON.stringify([t.region,t.dong])).sort((a,b)=>cmp(a[0].region,b[0].region)||cmp(a[0].dong,b[0].dong));const counts=new Map();for(const g of regions)counts.set(g[0].dong,(counts.get(g[0].dong)||0)+1);
  const districts=[];for(const items of regions){const t=items[0],d=counts.get(t.dong)>1?t.region+' '+t.dong:t.dong;districts.push({id:'dong-'+t.regionKey,dong:d,region:t.region,name:'동 전체 평균',year:'',average:mean(items,'unitPrice'),count:items.length,total:true});
  const names=new Map();for(const p of group(items,propertyKey))names.set(p[0].name,(names.get(p[0].name)||0)+1);
@@ -39,8 +47,8 @@ export function aggregate(rows){const included=rows.filter(t=>t.reason==='포함
  const reasons={};for(const t of excluded)reasons[t.reason]=(reasons[t.reason]||0)+1;return {included,excluded,apartments,districts,reasons,total:rows.length};
 }
 export function trend(rows,key,type=null,frequency='month'){const trades=rows.filter(t=>t.reason==='포함'&&propertyKey(t)===key&&(type==null||String(t.type)===String(type))).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||a.rowNumber-b.rowNumber);
- const points=group(trades.filter(t=>t.date),t=>frequency==='month'?t.date.slice(0,7):t.date).map(items=>({date:frequency==='month'?items[0].date.slice(0,7):items[0].date,average:mean(items,'unitPrice'),count:items.length})).sort((a,b)=>a.date.localeCompare(b.date));return {trades,points,missing:trades.filter(t=>!t.date).length};}
-export function sourceText(source){const m=source.metadata,get=k=>m[k]||'원본에 없음';return [`출처: 국토교통부 실거래가 공개시스템 | 대상: ${get('실거래 구분')} | 계약일 조회기간: ${get('계약일자')}`,`조회범위: ${get('시도')} / ${get('시군구')} / ${get('읍면동')}`,`산식: 거래별 [거래금액(만원) ÷ 전용면적(㎡) × 3.305785]의 산술평균 | 단위: 만원/평`,`제외: 직거래·해제 거래·타지역/소재지 미확인 중개사 거래·입력값 및 거래유형 확인 필요 거래`].join('\n');}
+ const points=group(trades.filter(t=>t.date),t=>casePeriod(t.date,frequency)).map(items=>({date:casePeriod(items[0].date,frequency),average:mean(items,'unitPrice'),count:items.length})).sort((a,b)=>a.date.localeCompare(b.date));return {trades,points,missing:trades.filter(t=>!t.date).length};}
+export function sourceText(source){const m=source.metadata,get=k=>m[k]||'원본에 없음';return [`출처: 국토교통부 실거래가 공개시스템 | 대상: ${get('실거래 구분')} | 계약일 조회기간: ${get('계약일자')}`,`조회범위: ${get('시도')} / ${get('시군구')} / ${get('읍면동')}`,`산식: 거래별 [거래금액(만원) ÷ 전용면적(㎡) × 3.305785]의 산술평균 | 단위: 만원/평`,`제외: 직거래·해제 거래·타지역/소재지 미확인 중개사 거래·입력값 및 거래유형 확인 필요 거래`,`공동중개: 거래 부동산과 같은 시군구의 중개사가 한 곳 이상 확인되면 중개사 소재지 기준 충족`].join('\n');}
 
 export const reviewKey=r=>JSON.stringify([r.name,r.address,r.type]);
 export function reviewedRows(rows,excluded){return rows.map(r=>r.reason==='포함'&&excluded.has(r.id)?{...r,reason:'수동 제외'}:r);}
@@ -93,8 +101,16 @@ export function sourceDateRange(source,rows=[]){
  const dates=String(source?.metadata?.['계약일자']||'').match(/\d{4}[-.]\d{2}[-.]\d{2}/g)?.map(d=>d.replaceAll('.','-')).filter(d=>Number.isFinite(Date.parse(d)))||[];
  const fallback=rows.map(r=>r.date).filter(Boolean);const values=(dates.length>=2?dates:fallback).sort();return {from:values[0]||null,to:values.at(-1)||null};
 }
+export function casePeriod(date,frequency){
+ return frequency==='day'?date:periodLabel(date,frequency);
+}
+export function periodTimestamp(label){
+ const q=/^(\d{4}) Q([1-4])$/.exec(label);
+ if(q)return Date.UTC(Number(q[1]),(Number(q[2])-1)*3,1);
+ return Date.parse(label+(label.length===7?'-01':'')+'T00:00:00Z');
+}
 export function stepCoordinates(points,from,to){
- const stamp=d=>Date.parse(d+(d.length===7?'-01':'')+'T00:00:00Z');const start=stamp(from),end=stamp(to);if(!Number.isFinite(start)||!Number.isFinite(end)||end<start)return [];
+ const stamp=periodTimestamp;const start=stamp(from),end=stamp(to);if(!Number.isFinite(start)||!Number.isFinite(end)||end<start)return [];
  const out=[];let previous=null;for(const p of points){const x=Math.max(start,Math.min(end,stamp(p.date)));if(!Number.isFinite(x)||!Number.isFinite(p.average))continue;if(previous!==null)out.push([x,previous]);out.push([x,p.average]);previous=p.average;}if(previous!==null)out.push([end,previous]);return out;
 }
 
@@ -105,7 +121,7 @@ export function periodAnalysis(rows,scope='property',frequency='month',from=null
  const groups=new Map();let missing=0;
  for(const r of rows){if(r.reason==='포함'&&!r.date)missing++;if(!r.date||(from&&r.date<from)||(to&&r.date>to))continue;
  const groupKey=JSON.stringify(scope==='dong'?[r.region,r.dong,r.type]:[r.name,r.address,r.type]);
- if(!groups.has(groupKey))groups.set(groupKey,{groupKey,targetKey:JSON.stringify(scope==='dong'?[r.region,r.dong]:[r.name,r.address]),group:scope==='dong'?[r.region,r.dong].filter(Boolean).join(' '):r.name,type:r.type,typeText:r.type+'타입',buckets:new Map()});
+ if(!groups.has(groupKey))groups.set(groupKey,{groupKey,targetKey:JSON.stringify(scope==='dong'?[r.region,r.dong]:[r.name,r.address]),group:scope==='dong'?[r.region,r.dong].filter(Boolean).join(' '):r.name,type:r.type,typeText:r.typeText||r.type+'타입',buckets:new Map()});
  const g=groups.get(groupKey);if(r.reason!=='포함')continue;const period=periodLabel(r.date,frequency);
  if(!g.buckets.has(period))g.buckets.set(period,{count:0,priceSum:0,unitSum:0,pricedCount:0,priceMinimum:null,priceMaximum:null,minimum:null,maximum:null});
  const b=g.buckets.get(period);b.count++;if(Number.isFinite(r.price)&&Number.isFinite(r.unitPrice)){b.priceSum+=r.price;b.unitSum+=r.unitPrice;b.pricedCount++;b.priceMinimum=b.priceMinimum==null?r.price:Math.min(b.priceMinimum,r.price);b.priceMaximum=b.priceMaximum==null?r.price:Math.max(b.priceMaximum,r.price);b.minimum=b.minimum==null?r.unitPrice:Math.min(b.minimum,r.unitPrice);b.maximum=b.maximum==null?r.unitPrice:Math.max(b.maximum,r.unitPrice);}

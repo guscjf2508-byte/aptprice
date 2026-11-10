@@ -5,3 +5,11 @@ test('period grouping uses individual trade means, distinct addresses, exclusion
 test('rental missing conversion is counted but not treated as zero price',()=>{const s=E.periodSummary([data[0],{...data[0],price:null,unitPrice:null}]);assert.equal(s.rows[0].count,2);assert.equal(s.rows[0].pricedCount,1);assert.equal(s.rows[0].priceAverage,100);});
 test('raw query date bounds cover multiple files regardless of observed trades',()=>{const r=E.sourceDateRange({metadata:{'계약일자':'2025-01-01 ~ 2025-12-31 / 2025-07-01 ~ 2026-07-31'}},data);assert.deepEqual(r,{from:'2025-01-01',to:'2026-07-31'});assert.equal(E.sourceDateRange({},data).from,'2025-01-01');});
 test('step line stays horizontal then vertical and extends to raw end',()=>{const p=E.stepCoordinates([{date:'2025-01',average:10},{date:'2025-03',average:20}],'2025-01-15','2025-12-31');assert.deepEqual(p.map(p=>p[1]),[10,10,20,20]);assert.equal(p[0][0],Date.parse('2025-01-15T00:00:00Z'));assert.equal(p[1][0],p[2][0]);assert.equal(p.at(-1)[0],Date.parse('2025-12-31T00:00:00Z'));});
+test('case trend groups by calendar quarter and plots valid quarter positions',()=>{
+ const rows=[['2025-01-12',10],['2025-03-22',20],['2025-04-01',30]].map(([date,unitPrice])=>({name:'A',address:'A 1',type:84,date,unitPrice,reason:'포함'}));
+ const {points}=E.trend(rows,E.propertyKey(rows[0]),'84','quarter');
+ assert.deepEqual(points,[{date:'2025 Q1',average:15,count:2},{date:'2025 Q2',average:30,count:1}]);
+ const coords=E.stepCoordinates(points,'2025-01-10','2025-06-30');
+ assert.equal(coords[2][0],Date.UTC(2025,3,1));
+ assert.equal(coords[0][0],Date.UTC(2025,0,10));
+});
